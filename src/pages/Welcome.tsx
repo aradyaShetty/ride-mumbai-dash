@@ -43,10 +43,10 @@ export const Welcome = () => {
               <span className="text-xl font-bold text-primary">RideMumbai</span>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline" asChild>
+              <Button variant="ghost" asChild>
                 <Link to="/login">Login</Link>
               </Button>
-              <Button asChild>
+              <Button variant="default" asChild>
                 <Link to="/register">Get Started</Link>
               </Button>
             </div>
@@ -74,7 +74,7 @@ export const Welcome = () => {
                     <ChevronRight className="w-5 h-5 ml-2" />
                   </Link>
                 </Button>
-                <Button size="xl" variant="outline" className="border-white/30 hover:bg-white/10 text-slate-50 font-medium">
+                <Button size="xl" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
                   <Play className="w-5 h-5 mr-2" />
                   Watch Demo
                 </Button>
@@ -90,7 +90,7 @@ export const Welcome = () => {
                   </CardContent>
                 </Card>
                 <Card className="shadow-custom-xl mt-8">
-                  <CardContent className="p-6 text-center py-[24px] mx-0 my-0 px-[24px]">
+                  <CardContent className="p-6 text-center">
                     <Train className="w-8 h-8 text-success mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Digital Tickets</h3>
                     <p className="text-sm text-muted-foreground">QR code boarding</p>
@@ -229,7 +229,7 @@ export const Welcome = () => {
                 <ChevronRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
-            <Button size="xl" variant="outline" className="border-white/30 text-white hover:bg-white/10" asChild>
+            <Button size="xl" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20" asChild>
               <Link to="/login">
                 Already have an account?
               </Link>
