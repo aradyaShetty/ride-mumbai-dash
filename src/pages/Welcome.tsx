@@ -74,7 +74,7 @@ export const Welcome = () => {
                     <ChevronRight className="w-5 h-5 ml-2" />
                   </Link>
                 </Button>
-                <Button size="xl" variant="outline" className="border-white/30 hover:bg-white/10 text-slate-50">
+                <Button size="xl" variant="outline" className="border-white/30 hover:bg-white/10 text-slate-50 font-medium">
                   <Play className="w-5 h-5 mr-2" />
                   Watch Demo
                 </Button>
