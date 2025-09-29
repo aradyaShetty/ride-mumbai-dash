@@ -247,7 +247,7 @@ export const Welcome = () => {
               <span className="text-lg font-semibold text-primary">RideMumbai</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              © 2024 RideMumbai. Making Mumbai move smarter.
+              © 2025 RideMumbai. Making Mumbai move smarter.
             </div>
           </div>
         </div>
