@@ -1,52 +1,39 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Train, 
-  Route, 
-  Clock, 
-  Shield, 
-  Smartphone, 
-  MapPin,
-  Star,
-  Users,
-  ChevronRight,
-  Play
-} from 'lucide-react';
-
+import { Train, Route, Clock, Shield, Smartphone, MapPin, Star, Users, ChevronRight, Play } from 'lucide-react';
 export const Welcome = () => {
-  const features = [
-    {
-      icon: Route,
-      title: 'Smart Route Planning',
-      description: 'Get the fastest routes with real-time updates and transfer information'
-    },
-    {
-      icon: Smartphone,
-      title: 'Digital Tickets',
-      description: 'Book and store tickets digitally with QR codes for quick boarding'
-    },
-    {
-      icon: Clock,
-      title: 'Real-time Updates',
-      description: 'Live train schedules, delays, and platform information'
-    },
-    {
-      icon: Shield,
-      title: 'Secure Payments',
-      description: 'Safe and secure payment processing with multiple options'
-    }
-  ];
-
-  const stats = [
-    { number: '2M+', label: 'Happy Commuters' },
-    { number: '12', label: 'Active Routes' },
-    { number: '50+', label: 'Metro Stations' },
-    { number: '99.8%', label: 'Uptime' }
-  ];
-
-  return (
-    <div className="min-h-screen bg-background">
+  const features = [{
+    icon: Route,
+    title: 'Smart Route Planning',
+    description: 'Get the fastest routes with real-time updates and transfer information'
+  }, {
+    icon: Smartphone,
+    title: 'Digital Tickets',
+    description: 'Book and store tickets digitally with QR codes for quick boarding'
+  }, {
+    icon: Clock,
+    title: 'Real-time Updates',
+    description: 'Live train schedules, delays, and platform information'
+  }, {
+    icon: Shield,
+    title: 'Secure Payments',
+    description: 'Safe and secure payment processing with multiple options'
+  }];
+  const stats = [{
+    number: '2M+',
+    label: 'Happy Commuters'
+  }, {
+    number: '12',
+    label: 'Active Routes'
+  }, {
+    number: '50+',
+    label: 'Metro Stations'
+  }, {
+    number: '99.8%',
+    label: 'Uptime'
+  }];
+  return <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -87,7 +74,7 @@ export const Welcome = () => {
                     <ChevronRight className="w-5 h-5 ml-2" />
                   </Link>
                 </Button>
-                <Button size="xl" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                <Button size="xl" variant="outline" className="border-white/30 hover:bg-white/10 text-slate-50">
                   <Play className="w-5 h-5 mr-2" />
                   Watch Demo
                 </Button>
@@ -103,7 +90,7 @@ export const Welcome = () => {
                   </CardContent>
                 </Card>
                 <Card className="shadow-custom-xl mt-8">
-                  <CardContent className="p-6 text-center">
+                  <CardContent className="p-6 text-center py-[24px] mx-0 my-0 px-[24px]">
                     <Train className="w-8 h-8 text-success mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Digital Tickets</h3>
                     <p className="text-sm text-muted-foreground">QR code boarding</p>
@@ -133,16 +120,14 @@ export const Welcome = () => {
       <section className="py-16 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
+            {stats.map((stat, index) => <div key={index} className="text-center">
                 <div className="text-3xl sm:text-4xl font-bold text-primary mb-2">
                   {stat.number}
                 </div>
                 <div className="text-muted-foreground">
                   {stat.label}
                 </div>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </section>
@@ -161,9 +146,8 @@ export const Welcome = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <Card key={index} className="shadow-custom-lg hover:shadow-custom-xl transition-shadow group">
+            const Icon = feature.icon;
+            return <Card key={index} className="shadow-custom-lg hover:shadow-custom-xl transition-shadow group">
                   <CardContent className="p-8 text-center">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-primary group-hover:scale-110 transition-all">
                       <Icon className="w-8 h-8 text-primary group-hover:text-white" />
@@ -175,9 +159,8 @@ export const Welcome = () => {
                       {feature.description}
                     </p>
                   </CardContent>
-                </Card>
-              );
-            })}
+                </Card>;
+          })}
           </div>
         </div>
       </section>
@@ -192,32 +175,25 @@ export const Welcome = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Priya Sharma",
-                role: "Daily Commuter",
-                content: "RideMumbai has made my daily commute so much easier. The route planning is spot-on!",
-                rating: 5
-              },
-              {
-                name: "Rahul Patel",
-                role: "Business Professional",
-                content: "Digital tickets and real-time updates have saved me countless hours. Highly recommended!",
-                rating: 5
-              },
-              {
-                name: "Sneha Iyer",
-                role: "Student",
-                content: "The app is intuitive and the booking process is super quick. Love the QR code feature!",
-                rating: 5
-              }
-            ].map((testimonial, index) => (
-              <Card key={index} className="shadow-custom-lg">
+            {[{
+            name: "Priya Sharma",
+            role: "Daily Commuter",
+            content: "RideMumbai has made my daily commute so much easier. The route planning is spot-on!",
+            rating: 5
+          }, {
+            name: "Rahul Patel",
+            role: "Business Professional",
+            content: "Digital tickets and real-time updates have saved me countless hours. Highly recommended!",
+            rating: 5
+          }, {
+            name: "Sneha Iyer",
+            role: "Student",
+            content: "The app is intuitive and the booking process is super quick. Love the QR code feature!",
+            rating: 5
+          }].map((testimonial, index) => <Card key={index} className="shadow-custom-lg">
                 <CardContent className="p-8">
                   <div className="flex items-center mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-warning fill-current" />
-                    ))}
+                    {[...Array(testimonial.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-warning fill-current" />)}
                   </div>
                   <p className="text-muted-foreground mb-6 italic">
                     "{testimonial.content}"
@@ -232,8 +208,7 @@ export const Welcome = () => {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>)}
           </div>
         </div>
       </section>
@@ -277,6 +252,5 @@ export const Welcome = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
