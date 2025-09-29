@@ -90,7 +90,7 @@ export const Welcome = () => {
                   </CardContent>
                 </Card>
                 <Card className="shadow-custom-xl mt-8">
-                  <CardContent className="p-6 text-center">
+                  <CardContent className="p-8 text-center">
                     <Train className="w-8 h-8 text-success mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Digital Tickets</h3>
                     <p className="text-sm text-muted-foreground">QR code boarding</p>
