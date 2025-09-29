@@ -81,30 +81,30 @@ export const Welcome = () => {
               </div>
             </div>
             <div className="relative">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 <Card className="shadow-custom-xl">
-                  <CardContent className="p-6 text-center">
+                  <CardContent className="p-8 text-center">
                     <MapPin className="w-8 h-8 text-primary mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Route Planning</h3>
                     <p className="text-sm text-muted-foreground">Smart navigation</p>
                   </CardContent>
                 </Card>
-                <Card className="shadow-custom-xl mt-8">
+                <Card className="shadow-custom-xl">
                   <CardContent className="p-8 text-center">
                     <Train className="w-8 h-8 text-success mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Digital Tickets</h3>
                     <p className="text-sm text-muted-foreground">QR code boarding</p>
                   </CardContent>
                 </Card>
-                <Card className="shadow-custom-xl -mt-4">
-                  <CardContent className="p-6 text-center">
+                <Card className="shadow-custom-xl">
+                  <CardContent className="p-8 text-center">
                     <Clock className="w-8 h-8 text-accent mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Live Updates</h3>
                     <p className="text-sm text-muted-foreground">Real-time info</p>
                   </CardContent>
                 </Card>
-                <Card className="shadow-custom-xl mt-4">
-                  <CardContent className="p-6 text-center">
+                <Card className="shadow-custom-xl">
+                  <CardContent className="p-8 text-center">
                     <Shield className="w-8 h-8 text-warning mx-auto mb-3" />
                     <h3 className="font-semibold mb-2">Secure Pay</h3>
                     <p className="text-sm text-muted-foreground">Safe transactions</p>
