@@ -25,19 +25,20 @@ import {
 import { useState } from 'react';
 
 export const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth(); // Added isAuthenticated
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/login'); // Navigate to login after logout
   };
 
   const getNavigationItems = () => {
     if (!user) return [];
-    
-    if (user.userType === 'admin') {
+
+    // --- FIX 1: Check user.role instead of user.userType ---
+    if (user.role === 'ROLE_ADMIN') { 
       return [
         { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
         { label: 'Routes', path: '/admin/routes', icon: Route },
@@ -45,9 +46,10 @@ export const Navbar = () => {
         { label: 'Users', path: '/admin/users', icon: Users },
         { label: 'Notifications', path: '/admin/notifications', icon: Bell },
       ];
-    } else {
+    } else { // Assumes ROLE_COMMUTER
       return [
-        { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+        // --- FIX 2: Update path to /commuter-dashboard ---
+        { label: 'Dashboard', path: '/commuter-dashboard', icon: LayoutDashboard }, 
         { label: 'Plan Route', path: '/route-planning', icon: Route },
         { label: 'Book Ticket', path: '/booking', icon: Ticket },
         { label: 'History', path: '/history', icon: History },
@@ -62,8 +64,10 @@ export const Navbar = () => {
     <nav className="bg-card border-b border-border shadow-custom-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to={user ? (user.userType === 'admin' ? '/admin/dashboard' : '/dashboard') : '/'} 
+
+          {/* --- FIX 3: Update Logo Link --- */}
+          <Link 
+                to={user ? (user.role === 'ROLE_ADMIN' ? '/admin/dashboard' : '/commuter-dashboard') : '/'} 
                 className="flex items-center space-x-2 text-xl font-bold text-primary hover:text-primary-hover transition-colors">
             <Train className="w-8 h-8" />
             <span>RideMumbai</span>
@@ -82,7 +86,7 @@ export const Navbar = () => {
                   >
                     <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
-                  </Link>
+                  </Link> // <-- THIS IS THE CORRECTED CLOSING TAG
                 );
               })}
             </div>
@@ -90,7 +94,7 @@ export const Navbar = () => {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            {user ? (
+            {isAuthenticated ? ( // <-- Use isAuthenticated to check
               <>
                 {/* Mobile menu button */}
                 <Button
@@ -107,12 +111,14 @@ export const Navbar = () => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="flex items-center space-x-2">
                       <User className="w-4 h-4" />
-                      <span className="hidden sm:inline">{user.name}</span>
+                       {/* --- FIX 4: Use 'username' --- */}
+                      <span className="hidden sm:inline">{user?.username}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
+                    {/* --- FIX 5: Use 'email' field --- */}
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      {user.email}
+                      {user?.email}
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
