@@ -20,13 +20,14 @@ interface AuthContextType {
   login: (credentials: { username: string; password: string }) => Promise<void>;
   register: (details: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>; // <-- ADD THIS
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null); // Start with null, check storage in effect
+  const [token, setToken] = useState<string | null>(localStorage.getItem('authToken')); // <-- Ensure this line is correct
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start true until initial check done
 
   // --- Helper: Fetch user details using a token ---
@@ -55,6 +56,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.removeItem('authToken');
     } finally {
       setIsLoading(false); // Stop loading after fetch attempt
+    }
+  };
+
+  // --- NEW FUNCTION ---
+  const refreshUser = async () => {
+    const currentToken = token || localStorage.getItem('authToken');
+    if (currentToken) {
+      console.log("Refreshing user details...");
+      await fetchUserDetails(currentToken);
+    } else {
+      console.log("No token, cannot refresh user.");
     }
   };
 
@@ -150,15 +162,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{
-        user,
-        token,
-        isAuthenticated: !!user && !!token, // User is authenticated only if both user object and token exist
-        isLoading,
-        login,
-        register,
-        logout
-        }}>
+    <AuthContext.Provider value={{ 
+        user, 
+        token, 
+        isAuthenticated: !!user && !!token, 
+        isLoading, 
+        login, 
+        register, 
+        logout,
+        refreshUser // <-- ADD THIS
+    }}>
       {children}
     </AuthContext.Provider>
   );
