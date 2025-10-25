@@ -134,15 +134,14 @@ export const TicketBooking = () => {
 
     setIsProcessingPayment(true);
     try {
-    const requestBody = {
-        // routeId: route.routeId, // <-- REMOVE THIS
-        startStationName: route.startStationName, // <-- ADD THIS
-        endStationName: route.endStationName, // <-- ADD THIS
-        distance: route.distance, // <-- ADD THIS
-
+      const requestBody = {
+        routeId: route.routeId, // This ID is -1L for dynamic routes, backend logic must handle this
         ticketType: ticketTypes.find(t => t.id === ticketType)?.name || "Single Journey",
         paymentMethod: paymentMethod,
-    };
+        // Our backend TicketService doesn't handle passengers count yet,
+        // but we'll send it. We need to update backend later.
+        // For now, we'll book 1 ticket.
+      };
 
       // --- BACKEND API CALL ---
       const response = await authenticatedFetch('/tickets/book', {

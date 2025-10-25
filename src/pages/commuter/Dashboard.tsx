@@ -17,6 +17,10 @@ import {
 
 export const Dashboard = () => {
   const { user } = useAuth();
+// --- FIX: Extract cleaner display name from the username (email) ---
+  const rawUsername = user?.username || 'Commuter';
+  const displayName = rawUsername.split('@')[0];
+  const displayRole = user?.role === 'ROLE_ADMIN' ? 'Administrator' : 'Commuter';
 
   const quickActions = [
     {
@@ -30,7 +34,7 @@ export const Dashboard = () => {
       title: 'Book Ticket',
       description: 'Quick ticket booking for your trip',
       icon: Ticket,
-      path: '/booking',
+      path: '/route-planning',
       color: 'bg-success',
     },
     {
@@ -97,7 +101,7 @@ export const Dashboard = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.name}!
+            Welcome back, {displayName}!
           </h1>
           <p className="text-muted-foreground">
             Ready for your next journey? Let's get you moving.

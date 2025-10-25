@@ -51,7 +51,7 @@ export const Navbar = () => {
         // --- FIX 2: Update path to /commuter-dashboard ---
         { label: 'Dashboard', path: '/commuter-dashboard', icon: LayoutDashboard }, 
         { label: 'Plan Route', path: '/route-planning', icon: Route },
-        { label: 'Book Ticket', path: '/booking', icon: Ticket },
+        { label: 'Book Ticket', path: '/route-planning', icon: Ticket },
         { label: 'History', path: '/history', icon: History },
         { label: 'Profile', path: '/profile', icon: Settings },
       ];
