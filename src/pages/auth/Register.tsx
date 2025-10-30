@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth, UserType } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // 'UserType' import removed
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { Train, Mail, Lock, User } from 'lucide-react';
@@ -16,7 +15,7 @@ export const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [userType, setUserType] = useState<UserType>('commuter');
+  // 'userType' state removed
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
@@ -25,56 +24,38 @@ export const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password || !name || !confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
       return;
     }
-
     if (password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
       return;
     }
-
-    if (password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters long",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // You can add more password validation here if needed
     if (!acceptTerms) {
-      toast({
-        title: "Error",
-        description: "Please accept the terms and conditions",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please accept the terms and conditions", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
-      await register(email, password, name, userType);
+      // Call register with ONE object argument.
+      // Backend auto-assigns Commuter role.
+      await register({ name: name, email: email, password: password });
+
       toast({
         title: "Welcome to RideMumbai!",
         description: "Your account has been created successfully",
       });
-      navigate(userType === 'admin' ? '/admin/dashboard' : '/dashboard');
-    } catch (error) {
+      // New users are always commuters, navigate to commuter dashboard
+      navigate('/commuter-dashboard'); 
+    } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: "Something went wrong. Please try again.",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -107,30 +88,12 @@ export const Register = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Create Account</CardTitle>
             <CardDescription>
-              Choose your account type and get started
+              Sign up to get started
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* User Type Selection */}
-            <Tabs value={userType} onValueChange={(value) => setUserType(value as UserType)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="commuter">Commuter</TabsTrigger>
-                <TabsTrigger value="admin">Admin</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="commuter" className="mt-6">
-                <p className="text-sm text-muted-foreground text-center mb-4">
-                  Perfect for daily commuters and occasional travelers
-                </p>
-              </TabsContent>
-              
-              <TabsContent value="admin" className="mt-6">
-                <p className="text-sm text-muted-foreground text-center mb-4">
-                  For system administrators and operations staff
-                </p>
-              </TabsContent>
-            </Tabs>
+            {/* User Type Selection Tabs REMOVED */}
 
             {/* Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Layout } from '@/components/layout/Layout';
 import QRCode from 'qrcode.react';
+import { useToast } from '@/hooks/use-toast';
+import { authenticatedFetch } from '@/lib/api'; // Import our helper
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { 
   History, 
   Search, 
@@ -16,130 +19,122 @@ import {
   Calendar,
   Clock,
   Users,
-  CreditCard
+  CreditCard,
+  XCircle // Import Cancel icon
 } from 'lucide-react';
 
-interface TicketHistory {
-  id: string;
-  from: string;
-  to: string;
-  date: string;
-  time: string;
-  passengers: number;
-  fare: number;
-  status: 'completed' | 'cancelled' | 'upcoming';
-  ticketType: string;
-  bookingId: string;
+// This interface now matches the backend TravelHistory entity
+interface TravelRecord {
+  historyId: number; // Changed from id
+  commuterId: number; // Added
+  ticketId: number; // Changed from bookingId
+  journeyDateTime: string; // Changed from date/time
+  startStationName: string; // Changed from from
+  endStationName: string; // Changed from to
+  farePaid: number; // Changed from fare
+  // status: 'completed' | 'cancelled' | 'upcoming'; // REMOVED - Not provided by this backend endpoint
+  // ticketType: string; // REMOVED - Not provided
+  // passengers: number; // REMOVED - Not provided
 }
 
-const mockTickets: TicketHistory[] = [
-  {
-    id: '1',
-    from: 'Andheri',
-    to: 'Ghatkopar',
-    date: '2024-01-15',
-    time: '09:30 AM',
-    passengers: 1,
-    fare: 45,
-    status: 'completed',
-    ticketType: 'Single Journey',
-    bookingId: 'RM123456789'
-  },
-  {
-    id: '2',
-    from: 'Colaba',
-    to: 'Versova',
-    date: '2024-01-14',
-    time: '06:15 PM',
-    passengers: 2,
-    fare: 90,
-    status: 'completed',
-    ticketType: 'Return Journey',
-    bookingId: 'RM987654321'
-  },
-  {
-    id: '3',
-    from: 'Bandra',
-    to: 'Airport Terminal 1',
-    date: '2024-01-10',
-    time: '02:45 PM',
-    passengers: 1,
-    fare: 55,
-    status: 'cancelled',
-    ticketType: 'Single Journey',
-    bookingId: 'RM456789123'
-  },
-  {
-    id: '4',
-    from: 'Churchgate',
-    to: 'Andheri',
-    date: '2024-01-20',
-    time: '08:00 AM',
-    passengers: 1,
-    fare: 40,
-    status: 'upcoming',
-    ticketType: 'Single Journey',
-    bookingId: 'RM789123456'
-  }
-];
+// REMOVED mockTickets array
 
 export const TravelHistory = () => {
-  const [tickets] = useState<TicketHistory[]>(mockTickets);
-  const [filteredTickets, setFilteredTickets] = useState<TicketHistory[]>(mockTickets);
+  const [tickets, setTickets] = useState<TravelRecord[]>([]); // Use TravelRecord
+  const [filteredTickets, setFilteredTickets] = useState<TravelRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedTicket, setSelectedTicket] = useState<TicketHistory | null>(null);
+  const [statusFilter, setStatusFilter] = useState('all'); // This filter is now cosmetic
+  const [selectedTicket, setSelectedTicket] = useState<TravelRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // NEW: Added loading state
+  const { toast } = useToast();
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    filterTickets(term, statusFilter);
+  // --- NEW: Fetch history on load ---
+  const fetchHistory = async () => {
+      setIsLoading(true);
+      try {
+          const response = await authenticatedFetch('/commuter/history');
+          if (!response.ok) throw new Error('Failed to fetch travel history');
+          const data: TravelRecord[] = await response.json();
+          // Sort by date, newest first
+          data.sort((a, b) => new Date(b.journeyDateTime).getTime() - new Date(a.journeyDateTime).getTime());
+          setTickets(data);
+          setFilteredTickets(data); // Initially show all
+          console.log("History fetched:", data);
+      } catch (error: any) {
+          console.error("Error fetching history:", error);
+          toast({ variant: "destructive", title: "Error", description: error.message });
+      } finally {
+          setIsLoading(false);
+      }
   };
 
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-    filterTickets(searchTerm, status);
-  };
+  useEffect(() => {
+      fetchHistory();
+  }, []); // Run only once
 
-  const filterTickets = (search: string, status: string) => {
+  // --- MODIFIED: Filter logic ---
+  useEffect(() => {
     let filtered = tickets;
 
-    if (search) {
+    if (searchTerm) {
       filtered = filtered.filter(ticket => 
-        ticket.from.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.to.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.bookingId.toLowerCase().includes(search.toLowerCase())
+        ticket.startStationName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.endStationName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.ticketId.toString().includes(searchTerm)
       );
     }
-
-    if (status !== 'all') {
-      filtered = filtered.filter(ticket => ticket.status === status);
-    }
+    
+    // Status filter logic is removed as we don't have status data
+    // if (statusFilter !== 'all') {
+    //   filtered = filtered.filter(ticket => ticket.status === statusFilter);
+    // }
 
     setFilteredTickets(filtered);
-  };
+  }, [searchTerm, statusFilter, tickets]); // Depends on tickets now
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-success text-success-foreground';
-      case 'cancelled':
-        return 'bg-destructive text-destructive-foreground';
-      case 'upcoming':
-        return 'bg-primary text-primary-foreground';
-      default:
-        return 'bg-muted text-muted-foreground';
+  // --- NEW: Handle Ticket Cancellation ---
+  const handleCancelTicket = async (ticketId: number) => {
+    // We add a confirmation dialog for safety
+    if (!confirm("Are you sure you want to cancel this ticket? This action cannot be undone.")) {
+        return;
+    }
+      
+    try {
+        const response = await authenticatedFetch(`/commuter/tickets/${ticketId}/cancel`, {
+            method: 'POST',
+        });
+        
+        if (!response.ok) {
+             const errorMsg = await response.text();
+            throw new Error(errorMsg || "Failed to cancel ticket.");
+        }
+        
+        toast({ title: "Success", description: "Ticket cancelled and refunded (if applicable)." });
+        fetchHistory(); // Refresh the list
+        
+    } catch (error: any) {
+        console.error("Cancel error:", error);
+        toast({ variant: "destructive", title: "Cancellation Failed", description: error.message });
     }
   };
 
-  const handleRebook = (ticket: TicketHistory) => {
-    // In a real app, this would navigate to booking page with pre-filled data
+  // Mock rebook (no change)
+  const handleRebook = (ticket: TravelRecord) => {
     console.log('Rebooking ticket:', ticket);
+    toast({ title: "Note", description: "Rebooking not implemented yet." });
   };
+  
+  // View QR (no change, still uses mock data)
+  const handleViewQR = (ticket: TravelRecord) => {
+      setSelectedTicket(ticket);
+  };
+
+  // getStatusColor (no longer used, can be removed)
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
+        {/* Header (No changes) */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Travel History
@@ -149,7 +144,7 @@ export const TravelHistory = () => {
           </p>
         </div>
 
-        {/* Filters */}
+        {/* Filters (Modified: Search only) */}
         <Card className="shadow-custom-md mb-6">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -157,48 +152,47 @@ export const TravelHistory = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by station or booking ID..."
+                    placeholder="Search by station or ticket ID..."
                     value={searchTerm}
-                    onChange={(e) => handleSearch(e.target.value)}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Tickets</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* --- MODIFICATION: Status filter disabled --- */}
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={true}>
+                <SelectTrigger className="w-40">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {/* <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem> */}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tickets List */}
-        <div className="space-y-4">
-          {filteredTickets.length === 0 ? (
-            <Card className="shadow-custom-md">
-              <CardContent className="p-8 text-center">
-                <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No tickets found</h3>
-                <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Try adjusting your search or filter criteria.' 
-                    : 'You haven\'t booked any tickets yet.'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredTickets.map((ticket) => (
-              <Card key={ticket.id} className="shadow-custom-md hover:shadow-custom-lg transition-shadow">
+        {/* Tickets List (MODIFIED) */}
+        {isLoading ? (
+          <div className="text-center p-12"><LoadingSpinner size="lg" /></div>
+        ) : filteredTickets.length === 0 ? (
+          <Card className="shadow-custom-md">
+            <CardContent className="p-8 text-center">
+              <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No tickets found</h3>
+              <p className="text-muted-foreground">
+                {searchTerm ? 'Try adjusting your search criteria.' : 'You haven\'t booked any tickets yet.'}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredTickets.map((ticket) => (
+              <Card key={ticket.historyId} className="shadow-custom-md hover:shadow-custom-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     {/* Ticket Info */}
@@ -207,95 +201,80 @@ export const TravelHistory = () => {
                         <div className="flex items-center space-x-3">
                           <div className="flex items-center space-x-2">
                             <MapPin className="w-4 h-4 text-primary" />
-                            <span className="font-semibold">{ticket.from}</span>
+                            <span className="font-semibold">{ticket.startStationName}</span>
                             <span className="text-muted-foreground">→</span>
                             <MapPin className="w-4 h-4 text-success" />
-                            <span className="font-semibold">{ticket.to}</span>
+                            <span className="font-semibold">{ticket.endStationName}</span>
                           </div>
                         </div>
-                        <Badge className={getStatusColor(ticket.status)}>
-                          {ticket.status}
-                        </Badge>
+                        {/* --- MODIFICATION: Status Badge removed --- */}
                       </div>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div className="flex items-center space-x-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span>{new Date(ticket.date).toLocaleDateString()}</span>
+                          <span>{new Date(ticket.journeyDateTime).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-muted-foreground" />
-                          <span>{ticket.time}</span>
+                          <span>{new Date(ticket.journeyDateTime).toLocaleTimeString()}</span>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        {/* Passengers data not in TravelHistory */}
+                        {/* <div className="flex items-center space-x-2">
                           <Users className="w-4 h-4 text-muted-foreground" />
-                          <span>{ticket.passengers} passenger{ticket.passengers > 1 ? 's' : ''}</span>
-                        </div>
+                          <span>{ticket.passengers} passenger...</span>
+                        </div> */}
                         <div className="flex items-center space-x-2">
                           <CreditCard className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-semibold">₹{ticket.fare}</span>
+                          <span className="font-semibold">₹{ticket.farePaid.toFixed(2)}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-xs text-muted-foreground">Booking ID: </span>
-                          <span className="text-xs font-mono font-semibold">{ticket.bookingId}</span>
+                          <span className="text-xs text-muted-foreground">Ticket ID: </span>
+                          <span className="text-xs font-mono font-semibold">{ticket.ticketId}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">{ticket.ticketType}</span>
+                        {/* TicketType data not in TravelHistory */}
+                        {/* <span className="text-xs text-muted-foreground">{ticket.ticketType}</span> */}
                       </div>
                     </div>
 
-                    {/* Actions */}
+                    {/* --- MODIFIED: Actions --- */}
                     <div className="flex flex-col sm:flex-row gap-2 lg:w-auto w-full">
-                      {ticket.status === 'upcoming' && (
-                        <Button
-                          variant="outline"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewQR(ticket)} // Still uses mock QR data
+                      >
+                        View QR
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRebook(ticket)} // Still mock
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Rebook
+                      </Button>
+                      {/* --- NEW: Cancel Button --- */}
+                       <Button
+                          variant="destructive"
                           size="sm"
-                          onClick={() => setSelectedTicket(ticket)}
+                          onClick={() => handleCancelTicket(ticket.ticketId)}
                         >
-                          View QR
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Cancel
                         </Button>
-                      )}
-                      {ticket.status === 'completed' && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedTicket(ticket)}
-                          >
-                            <Download className="w-3 h-3 mr-1" />
-                            Receipt
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRebook(ticket)}
-                          >
-                            <RotateCcw className="w-3 h-3 mr-1" />
-                            Rebook
-                          </Button>
-                        </>
-                      )}
-                      {ticket.status === 'cancelled' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRebook(ticket)}
-                        >
-                          <RotateCcw className="w-3 h-3 mr-1" />
-                          Rebook
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* QR Code Modal */}
+        {/* QR Code Modal (Modified to use TravelRecord) */}
         {selectedTicket && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <Card className="w-full max-w-md">
@@ -305,12 +284,11 @@ export const TravelHistory = () => {
               <CardContent className="text-center space-y-4">
                 <div className="bg-white p-4 rounded-lg">
                   <QRCode 
-                    value={JSON.stringify({
-                      bookingId: selectedTicket.bookingId,
-                      from: selectedTicket.from,
-                      to: selectedTicket.to,
-                      date: selectedTicket.date,
-                      passengers: selectedTicket.passengers
+                    value={JSON.stringify({ // QR data is mock, as history doesn't store QR
+                      bookingId: selectedTicket.ticketId,
+                      from: selectedTicket.startStationName,
+                      to: selectedTicket.endStationName,
+                      date: selectedTicket.journeyDateTime,
                     })}
                     size={200}
                     className="mx-auto"
@@ -320,15 +298,15 @@ export const TravelHistory = () => {
                 <div className="text-left space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Route:</span>
-                    <span>{selectedTicket.from} → {selectedTicket.to}</span>
+                    <span>{selectedTicket.startStationName} → {selectedTicket.endStationName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date:</span>
-                    <span>{new Date(selectedTicket.date).toLocaleDateString()}</span>
+                    <span>{new Date(selectedTicket.journeyDateTime).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Booking ID:</span>
-                    <span className="font-mono">{selectedTicket.bookingId}</span>
+                    <span className="font-mono">{selectedTicket.ticketId}</span>
                   </div>
                 </div>
 

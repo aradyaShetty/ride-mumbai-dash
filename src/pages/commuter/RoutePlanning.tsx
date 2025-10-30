@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,27 +7,30 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Layout } from '@/components/layout/Layout';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  MapPin, 
-  ArrowRight, 
-  Clock, 
-  Train, 
+import {
+  MapPin,
+  ArrowRight,
+  Clock,
+  Train,
   Route,
   Navigation,
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { authenticatedFetch } from '@/lib/api'; // Import our helper
 
-const mumbaMetroStations = [
-  'Versova', 'D N Nagar', 'Azad Nagar', 'Andheri', 'Western Express Highway', 'Chakala',
-  'Airport Terminal 1', 'Marol Naka', 'Saki Naka', 'Asalpha', 'Jagruti Nagar', 'Ghatkopar',
-  'Colaba', 'Churchgate', 'Marine Lines', 'Charni Road', 'Grant Road', 'Mumbai Central',
-  'Mahalaxmi', 'Lower Parel', 'Prabhadevi', 'Dadar', 'Bandra', 'Khar Road', 'Santacruz',
-  'Vile Parle', 'Andheri East', 'Jogeshwari', 'Goregaon', 'Malad', 'Kandivali', 'Borivali',
-  'Dahisar', 'Mira Road', 'Bhayandar', 'Naigaon', 'Vasai Road', 'Nallasopara', 'Virar'
-];
+// REMOVED hardcoded mumbaMetroStations array
 
+// Define the REAL data structure from the backend (Task 6)
+interface BackendRouteResult {
+  routeId: number;
+  startStationName: string;
+  endStationName: string;
+  distance: number;
+}
+
+// Kept your original UI-facing interface
 interface RouteStep {
   station: string;
   line: string;
@@ -41,6 +45,8 @@ interface RouteResult {
   totalDistance: string;
   fare: string;
   steps: RouteStep[];
+  // Add backend data for passing to booking page
+  backendRoute?: BackendRouteResult;
 }
 
 export const RoutePlanning = () => {
@@ -50,69 +56,95 @@ export const RoutePlanning = () => {
   const [isPlanning, setIsPlanning] = useState(false);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate(); // Initialize navigate
 
+  // --- NEW STATE for stations ---
+  const [stations, setStations] = useState<string[]>([]);
+  const [isLoadingStations, setIsLoadingStations] = useState(true);
+
+  // --- NEW: Fetch stations from backend on load ---
+  useEffect(() => {
+    const fetchStations = async () => {
+      setIsLoadingStations(true);
+      try {
+        const response = await authenticatedFetch('/routes/stations'); // Endpoint from Task 3
+        if (!response.ok) throw new Error('Failed to fetch stations');
+        const data: string[] = await response.json();
+        setStations(data); // Use the 10 stations from our backend
+        console.log("Stations fetched:", data);
+      } catch (error: any) {
+        console.error("Error fetching stations:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message || "Could not load stations.",
+        });
+      } finally {
+        setIsLoadingStations(false);
+      }
+    };
+    fetchStations();
+  }, [toast]); // Run once
+
+  // --- UPDATED: handlePlanRoute to call backend ---
   const handlePlanRoute = async () => {
     if (!fromStation || !toStation) {
-      toast({
-        title: "Missing Information",
-        description: "Please select both source and destination stations",
-        variant: "destructive",
-      });
+      toast({ title: "Missing Information", description: "Please select both source and destination", variant: "destructive" });
       return;
     }
-
     if (fromStation === toStation) {
-      toast({
-        title: "Invalid Route",
-        description: "Source and destination cannot be the same",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid Route", description: "Source and destination cannot be the same", variant: "destructive" });
       return;
     }
 
     setIsPlanning(true);
+    setRouteResult(null); // Clear previous results
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const params = new URLSearchParams({ source: fromStation, destination: toStation });
+      const response = await authenticatedFetch(`/routes/plan?${params.toString()}`);
 
-    // Mock route result
-    const mockResult: RouteResult = {
-      totalTime: "45 minutes",
-      totalDistance: "28.5 km",
-      fare: "₹45",
-      steps: [
-        {
-          station: fromStation,
-          line: "Blue Line",
-          platform: "Platform 1",
-          arrivalTime: "09:00 AM",
-          departureTime: "09:02 AM"
-        },
-        {
-          station: "Andheri",
-          line: "Blue Line",
-          platform: "Platform 1",
-          arrivalTime: "09:15 AM",
-          departureTime: "09:17 AM",
-          isTransfer: true
-        },
-        {
-          station: toStation,
-          line: "Red Line",
-          platform: "Platform 2",
-          arrivalTime: "09:45 AM",
-          departureTime: "09:45 AM"
+      if (!response.ok) {
+        let errorMsg = "Failed to plan route.";
+        if (response.status === 404) {
+          errorMsg = "No route found between these stations.";
+        } else if (response.status === 400) {
+          errorMsg = "Invalid stations selected.";
         }
-      ]
-    };
+        throw new Error(errorMsg);
+      }
 
-    setRouteResult(mockResult);
-    setIsPlanning(false);
+      const data: BackendRouteResult = await response.json();
+      console.log("Backend route data:", data);
 
-    toast({
-      title: "Route Found!",
-      description: "Your optimal route has been calculated",
-    });
+      // --- ADAPT BACKEND DATA to frontend structure ---
+      // We adapt the simple backend response to fit your complex UI
+      setRouteResult({
+        totalTime: "N/A", // We don't have this from backend yet
+        totalDistance: `${data.distance.toFixed(1)} km`, // This works!
+        fare: "N/A", // We don't have this from backend yet
+        steps: [ // Create mock steps just to show start and end
+          { station: data.startStationName, line: "Line 1", platform: "Platform 1 (Mock)", arrivalTime: "N/A", departureTime: "N/A" },
+          { station: data.endStationName, line: "Line 1", platform: "Platform 2 (Mock)", arrivalTime: "N/A", departureTime: "N/A" }
+        ],
+        backendRoute: data // <-- Store the real backend data
+      });
+
+      toast({
+        title: "Route Found!",
+        description: `Fastest route is ${data.distance.toFixed(1)} km.`,
+      });
+
+    } catch (error: any) {
+      console.error("Error planning route:", error);
+      toast({
+        variant: "destructive",
+        title: "Route Planning Failed",
+        description: error.message,
+      });
+    } finally {
+      setIsPlanning(false);
+    }
   };
 
   const handleSwapStations = () => {
@@ -121,10 +153,20 @@ export const RoutePlanning = () => {
     setToStation(temp);
   };
 
+  // --- UPDATED: Navigate to booking ---
+  const handleProceedToBooking = () => {
+    if (routeResult?.backendRoute) {
+      // Pass the *original* backend route object to the booking page
+      navigate('/booking', { state: { route: routeResult.backendRoute } });
+    } else {
+      toast({ title: "Error", description: "Cannot proceed, route data missing.", variant: "destructive" });
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
+        {/* Header (No Changes) */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Plan Your Route
@@ -146,13 +188,14 @@ export const RoutePlanning = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="from">From Station</Label>
-                <Select value={fromStation} onValueChange={setFromStation}>
+                {/* UPDATED Select to use 'stations' state */}
+                <Select value={fromStation} onValueChange={setFromStation} disabled={isLoadingStations}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select source station" />
+                    <SelectValue placeholder={isLoadingStations ? "Loading stations..." : "Select source station"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {mumbaMetroStations.map((station) => (
-                      <SelectItem key={station} value={station}>
+                    {stations.map((station) => (
+                      <SelectItem key={`from-${station}`} value={station}>
                         <div className="flex items-center">
                           <MapPin className="w-4 h-4 mr-2 text-primary" />
                           {station}
@@ -165,13 +208,14 @@ export const RoutePlanning = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="to">To Station</Label>
-                <Select value={toStation} onValueChange={setToStation}>
+                {/* UPDATED Select to use 'stations' state */}
+                <Select value={toStation} onValueChange={setToStation} disabled={isLoadingStations}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select destination station" />
+                    <SelectValue placeholder={isLoadingStations ? "Loading stations..." : "Select destination station"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {mumbaMetroStations.map((station) => (
-                      <SelectItem key={station} value={station}>
+                    {stations.map((station) => (
+                      <SelectItem key={`to-${station}`} value={station}>
                         <div className="flex items-center">
                           <MapPin className="w-4 h-4 mr-2 text-success" />
                           {station}
@@ -183,9 +227,10 @@ export const RoutePlanning = () => {
               </div>
             </div>
 
+            {/* Swap Button (No Changes) */}
             <div className="flex items-center justify-center">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="icon"
                 onClick={handleSwapStations}
                 className="rounded-full"
@@ -194,6 +239,7 @@ export const RoutePlanning = () => {
               </Button>
             </div>
 
+            {/* Time Select (No Changes - this is cosmetic for now) */}
             <div className="space-y-2">
               <Label htmlFor="time">Travel Time</Label>
               <Select value={travelTime} onValueChange={setTravelTime}>
@@ -208,10 +254,11 @@ export const RoutePlanning = () => {
               </Select>
             </div>
 
-            <Button 
-              onClick={handlePlanRoute} 
+            {/* Submit Button (No Changes) */}
+            <Button
+              onClick={handlePlanRoute}
               className="w-full"
-              disabled={isPlanning}
+              disabled={isPlanning || isLoadingStations}
               size="lg"
             >
               {isPlanning ? (
@@ -229,7 +276,7 @@ export const RoutePlanning = () => {
           </CardContent>
         </Card>
 
-        {/* Route Results */}
+        {/* Route Results (Kept your UI, but uses adapted data) */}
         {routeResult && (
           <Card className="shadow-custom-lg">
             <CardHeader>
@@ -250,16 +297,15 @@ export const RoutePlanning = () => {
                 {routeResult.steps.map((step, index) => (
                   <div key={index} className="flex items-center space-x-4">
                     <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${
-                        index === 0 ? 'bg-success' :
-                        index === routeResult.steps.length - 1 ? 'bg-destructive' :
-                        'bg-primary'
-                      }`} />
+                      <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-success' :
+                          index === routeResult.steps.length - 1 ? 'bg-destructive' :
+                            'bg-primary'
+                        }`} />
                       {index < routeResult.steps.length - 1 && (
                         <div className="w-0.5 h-12 bg-border mt-2" />
                       )}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div>
@@ -280,32 +326,24 @@ export const RoutePlanning = () => {
                             {step.arrivalTime}
                           </div>
                           {step.departureTime !== step.arrivalTime && (
-                            <div className="text-xs text-muted-foreground">
-                              Depart: {step.departureTime}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Ready to book this journey?
-                  </div>
-                  <Button variant="default">
-                    Book Tickets
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </Layout>
-  );
-};
+                                                    <div className="text-xs text-muted-foreground">
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                        
+                                      <Button onClick={handleProceedToBooking} className="w-full mt-6">
+                                        <ArrowRight className="w-4 h-4 mr-2" />
+                                        Proceed to Booking
+                                      </Button>
+                                                              </CardContent>
+                                                            </Card>
+                                                          )}
+                                                        </div>
+                                                      </Layout>
+                              );
+                            };

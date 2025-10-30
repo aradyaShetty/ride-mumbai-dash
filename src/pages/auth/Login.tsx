@@ -4,24 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth, UserType } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // 'UserType' import removed
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { Train, Mail, Lock } from 'lucide-react';
+import React from 'react';
 
 export const Login = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(''); // We use email as the username
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<UserType>('commuter');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user } = useAuth(); // Get 'login' and 'user'
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast({
         title: "Error",
@@ -32,24 +31,42 @@ export const Login = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
-      await login(email, password, userType);
+      // Call login with ONE object argument.
+      // We pass the 'email' state as the 'username' field,
+      // as our backend login DTO expects 'username'.
+      await login({ username: email, password: password });
+
       toast({
         title: "Welcome back!",
         description: "Successfully logged in to RideMumbai",
       });
-      navigate(userType === 'admin' ? '/admin/dashboard' : '/dashboard');
-    } catch (error) {
+
+      // Redirect based on the *role* from the auth context user object
+      // We must re-fetch the user object from context *after* login completes.
+      // Note: The 'user' object might be slightly delayed.
+      // A better approach is handled in AuthContext by navigating *after* user is set.
+      // For now, let's navigate based on the anticipated role from the API.
+      // We will refine this if navigation fails.
+    } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: "Invalid credentials. Please try again.",
+        description: error.message || "Invalid credentials. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Handle navigation *after* user state is updated
+  React.useEffect(() => {
+    if (user) {
+      navigate(user.role === 'ROLE_ADMIN' ? '/admin/dashboard' : '/commuter-dashboard');
+    }
+  }, [user, navigate]);
+
 
   const handleOAuthLogin = (provider: string) => {
     toast({
@@ -76,30 +93,12 @@ export const Login = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Sign In</CardTitle>
             <CardDescription>
-              Choose your account type and enter your credentials
+              Enter your credentials to login
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* User Type Selection */}
-            <Tabs value={userType} onValueChange={(value) => setUserType(value as UserType)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="commuter">Commuter</TabsTrigger>
-                <TabsTrigger value="admin">Admin</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="commuter" className="mt-6">
-                <p className="text-sm text-muted-foreground text-center mb-4">
-                  Book tickets, plan routes, and manage your metro travel
-                </p>
-              </TabsContent>
-              
-              <TabsContent value="admin" className="mt-6">
-                <p className="text-sm text-muted-foreground text-center mb-4">
-                  Manage routes, schedules, and system operations
-                </p>
-              </TabsContent>
-            </Tabs>
+            {/* User Type Selection Tabs REMOVED */}
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">

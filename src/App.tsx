@@ -31,25 +31,52 @@ const queryClient = new QueryClient();
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth(); // Add isLoading
   
+  // Show a loading spinner while auth state is being determined
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        {/* You can use your LoadingSpinner component here */}
+        <div>Loading...</div> 
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   
-  if (adminOnly && user?.userType !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+  // --- THIS IS THE KEY CHANGE ---
+  // Check backend 'role' field against 'ROLE_ADMIN'
+  if (adminOnly && user?.role !== 'ROLE_ADMIN') { 
+    return <Navigate to="/commuter-dashboard" replace />; // Redirect non-admins from admin routes
   }
   
+  // Redirect admins from commuter routes
+  if (!adminOnly && user?.role === 'ROLE_ADMIN') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   return <>{children}</>;
 };
 
 // Public Route Component (redirect if authenticated)
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth(); // Add isLoading
   
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
   if (isAuthenticated) {
-    return <Navigate to={user?.userType === 'admin' ? '/admin/dashboard' : '/dashboard'} replace />;
+    // --- THIS IS THE KEY CHANGE ---
+    // Check backend 'role' field
+    return <Navigate to={user?.role === 'ROLE_ADMIN' ? '/admin/dashboard' : '/commuter-dashboard'} replace />;
   }
   
   return <>{children}</>;
@@ -63,8 +90,8 @@ const AppRoutes = () => {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       
-      {/* Commuter Routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      {/* Commuter Routes --- UPDATED PATH --- */}
+      <Route path="/commuter-dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/route-planning" element={<ProtectedRoute><RoutePlanning /></ProtectedRoute>} />
       <Route path="/booking" element={<ProtectedRoute><TicketBooking /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><TravelHistory /></ProtectedRoute>} />

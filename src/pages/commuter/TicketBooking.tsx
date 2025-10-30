@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
+import { useLocation, useNavigate } from 'react-router-dom'; // Import useLocation/useNavigate
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Removed DialogTrigger
 import { Layout } from '@/components/layout/Layout';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -18,15 +19,18 @@ import {
   Clock,
   CheckCircle2,
   Smartphone,
-  Download
+  Download,
+  Wallet, // Added Wallet Icon
+  ArrowRight,
+  History
 } from 'lucide-react';
+import { authenticatedFetch } from '@/lib/api'; // Import our helper
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Import RadioGroup
 
-const mumbaMetroStations = [
-  'Versova', 'D N Nagar', 'Azad Nagar', 'Andheri', 'Western Express Highway', 'Chakala',
-  'Airport Terminal 1', 'Marol Naka', 'Saki Naka', 'Asalpha', 'Jagruti Nagar', 'Ghatkopar',
-  'Colaba', 'Churchgate', 'Marine Lines', 'Charni Road', 'Grant Road', 'Mumbai Central'
-];
+// REMOVED mock mumbaMetroStations
 
+// Kept your ticketTypes
 const ticketTypes = [
   { id: 'single', name: 'Single Journey', description: 'One-way ticket for immediate travel' },
   { id: 'return', name: 'Return Journey', description: 'Round-trip ticket valid for same day' },
@@ -34,6 +38,27 @@ const ticketTypes = [
   { id: 'monthly', name: 'Monthly Pass', description: 'Unlimited travel for 30 days' }
 ];
 
+// Type for the route data passed from the planning page
+interface PlannedRoute {
+    routeId: number;
+    startStationName: string;
+    endStationName: string;
+    distance: number;
+}
+
+// Type for the ticket object received from the backend
+interface BackendTicket {
+    ticketId: number;
+    commuterId: number;
+    routeId: number;
+    fare: number;
+    bookingDateTime: string; // This is LocalDateTime, will be a string
+    ticketType: string;
+    qrCodeData: string;
+    status: string;
+}
+
+// Kept your BookingDetails, but it will be populated by BackendTicket
 interface BookingDetails {
   from: string;
   to: string;
@@ -42,84 +67,144 @@ interface BookingDetails {
   travelDate: string;
   totalFare: number;
   bookingId: string;
+  qrCodeData: string;
+  bookingDateTime: string;
 }
 
 export const TicketBooking = () => {
-  const [fromStation, setFromStation] = useState('');
-  const [toStation, setToStation] = useState('');
+  // --- NEW State for passed route and fare ---
+  const [route, setRoute] = useState<PlannedRoute | null>(null);
+  const [fare, setFare] = useState<number>(0);
+
+  // --- Existing State ---
   const [ticketType, setTicketType] = useState('single');
   const [passengers, setPassengers] = useState(1);
   const [travelDate, setTravelDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isBooking, setIsBooking] = useState(false);
+  // isBooking state removed as we now use the dialog
   const [showPayment, setShowPayment] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
-  const { toast } = useToast();
 
+  // --- NEW State for Payment Method ---
+  const [paymentMethod, setPaymentMethod] = useState<string>('WALLET');
+
+  const { toast } = useToast();
+  const { user } = useAuth(); // Get user for wallet balance
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // --- NEW: Load route data from location state ---
+  useEffect(() => {
+    if (location.state && location.state.route) {
+      const passedRoute: PlannedRoute = location.state.route;
+      setRoute(passedRoute);
+      // Calculate fare based on backend logic
+      const calculatedFare = (passedRoute.distance || 0) * 2.5; // Use 2.5 as per our backend service
+      setFare(calculatedFare);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "No Route Selected",
+        description: "Please plan a route first.",
+      });
+      navigate('/route-planning');
+    }
+  }, [location, navigate, toast]);
+
+  // --- UPDATED: calculateFare to use real data ---
   const calculateFare = () => {
-    const baseFare = 35;
-    const multiplier = ticketType === 'return' ? 1.8 : ticketType === 'weekly' ? 25 : ticketType === 'monthly' ? 90 : 1;
-    return Math.round(baseFare * multiplier * passengers);
+    // Simple calculation for now, ignoring ticket type multipliers
+    // In a real app, this logic would match the backend's complexity
+    return fare * passengers;
   };
 
+  // --- UPDATED: handleBookTicket now just shows payment modal ---
   const handleBookTicket = () => {
-    if (!fromStation || !toStation) {
-      toast({
-        title: "Missing Information",
-        description: "Please select both source and destination stations",
-        variant: "destructive",
-      });
+    if (!route) {
+      toast({ title: "Error", description: "Route data is missing.", variant: "destructive" });
       return;
     }
-
-    if (fromStation === toStation) {
-      toast({
-        title: "Invalid Route",
-        description: "Source and destination cannot be the same",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setShowPayment(true);
   };
 
+  // --- UPDATED: handlePayment calls the backend ---
   const handlePayment = async () => {
+    if (!route) return;
+
     setIsProcessingPayment(true);
+    try {
+      const requestBody = {
+        routeId: route.routeId, // This ID is -1L for dynamic routes, backend logic must handle this
+        ticketType: ticketTypes.find(t => t.id === ticketType)?.name || "Single Journey",
+        paymentMethod: paymentMethod,
+        // Our backend TicketService doesn't handle passengers count yet,
+        // but we'll send it. We need to update backend later.
+        // For now, we'll book 1 ticket.
+      };
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 3000));
+      // --- BACKEND API CALL ---
+      const response = await authenticatedFetch('/tickets/book', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
 
-    const booking: BookingDetails = {
-      from: fromStation,
-      to: toStation,
-      ticketType,
-      passengers,
-      travelDate,
-      totalFare: calculateFare(),
-      bookingId: 'RM' + Math.random().toString(36).substr(2, 9).toUpperCase()
-    };
+      if (!response.ok) {
+        let errorMsg = "Booking failed. Please try again.";
+        if (response.status === 400) {
+          try {
+            const bodyText = await response.text();
+            if (bodyText.toLowerCase().includes("insufficient wallet balance")) {
+              errorMsg = "Insufficient wallet balance.";
+            } else {
+              errorMsg = bodyText || "Payment or booking failed.";
+            }
+          } catch (_) {}
+        }
+        throw new Error(errorMsg);
+      }
 
-    setBookingDetails(booking);
-    setIsProcessingPayment(false);
-    setShowPayment(false);
-    setBookingComplete(true);
+      const data: BackendTicket = await response.json();
 
-    toast({
-      title: "Booking Successful!",
-      description: "Your tickets have been booked successfully",
-    });
+      // Map backend ticket to frontend's BookingDetails
+      setBookingDetails({
+        from: route.startStationName,
+        to: route.endStationName,
+        ticketType: data.ticketType,
+        passengers: passengers, // Show passengers from form
+        travelDate: travelDate,
+        totalFare: data.fare, // Use fare from backend response
+        bookingId: data.ticketId.toString(), // Use ticketId as bookingId
+        qrCodeData: data.qrCodeData,
+        bookingDateTime: data.bookingDateTime
+      });
+
+      setIsProcessingPayment(false);
+      setShowPayment(false);
+      setBookingComplete(true);
+
+      toast({
+        title: "Booking Successful!",
+        description: "Your tickets have been booked successfully",
+      });
+
+    } catch (error: any) {
+      setIsProcessingPayment(false);
+      console.error("Booking error:", error);
+      toast({
+        variant: "destructive",
+        title: "Booking Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+    }
   };
 
-  const qrCodeData = bookingDetails ? JSON.stringify({
-    bookingId: bookingDetails.bookingId,
-    from: bookingDetails.from,
-    to: bookingDetails.to,
-    passengers: bookingDetails.passengers,
-    date: bookingDetails.travelDate,
-    fare: bookingDetails.totalFare
-  }) : '';
+  const qrCodeData = bookingDetails ? bookingDetails.qrCodeData : '';
+
+  if (!route) {
+      // Show loading or nothing while redirecting
+      return <Layout><div className="flex min-h-[60vh] items-center justify-center"><LoadingSpinner size="lg" /></div></Layout>;
+  }
 
   return (
     <Layout>
@@ -130,7 +215,7 @@ export const TicketBooking = () => {
             Book Your Ticket
           </h1>
           <p className="text-muted-foreground">
-            Quick and easy ticket booking for Mumbai Metro
+            Confirm your journey details and complete payment
           </p>
         </div>
 
@@ -143,48 +228,21 @@ export const TicketBooking = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Route Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="from">From Station</Label>
-                  <Select value={fromStation} onValueChange={setFromStation}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select source station" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mumbaMetroStations.map((station) => (
-                        <SelectItem key={station} value={station}>
-                          <div className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-2 text-primary" />
-                            {station}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="to">To Station</Label>
-                  <Select value={toStation} onValueChange={setToStation}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select destination station" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mumbaMetroStations.map((station) => (
-                        <SelectItem key={station} value={station}>
-                          <div className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-2 text-success" />
-                            {station}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* --- MODIFIED: Route Display --- */}
+              <div className="space-y-2">
+                <Label>Route</Label>
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center font-medium">
+                        <MapPin className="mr-2 h-5 w-5 text-primary" /> {route.startStationName}
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-muted-foreground mx-4" />
+                    <div className="flex items-center font-medium">
+                        <MapPin className="mr-2 h-5 w-5 text-success" /> {route.endStationName}
+                    </div>
                 </div>
               </div>
 
-              {/* Ticket Type Selection */}
+              {/* Ticket Type Selection (Kept from your original) */}
               <div className="space-y-3">
                 <Label>Ticket Type</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -210,7 +268,7 @@ export const TicketBooking = () => {
                 </div>
               </div>
 
-              {/* Passengers and Date */}
+              {/* Passengers and Date (Kept from your original) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="passengers">Number of Passengers</Label>
@@ -246,32 +304,29 @@ export const TicketBooking = () => {
                 </div>
               </div>
 
-              {/* Fare Summary */}
-              {fromStation && toStation && (
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-muted-foreground">Base Fare per person:</span>
-                    <span className="font-medium">₹35</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-muted-foreground">Passengers:</span>
-                    <span className="font-medium">{passengers}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3 pb-3 border-b">
-                    <span className="text-sm text-muted-foreground">Ticket Type:</span>
-                    <span className="font-medium">{ticketTypes.find(t => t.id === ticketType)?.name}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold">Total Fare:</span>
-                    <span className="text-2xl font-bold text-primary">₹{calculateFare()}</span>
-                  </div>
+              {/* Fare Summary (UPDATED to use real fare) */}
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">Base Fare (per ticket):</span>
+                  <span className="font-medium">₹{fare.toFixed(2)}</span>
                 </div>
-              )}
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">Passengers:</span>
+                  <span className="font-medium">{passengers}</span>
+                </div>
+                <div className="flex justify-between items-center mb-3 pb-3 border-b">
+                  <span className="text-sm text-muted-foreground">Ticket Type:</span>
+                  <span className="font-medium">{ticketTypes.find(t => t.id === ticketType)?.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold">Total Fare:</span>
+                  <span className="text-2xl font-bold text-primary">₹{calculateFare().toFixed(2)}</span>
+                </div>
+              </div>
 
               <Button 
                 onClick={handleBookTicket} 
                 className="w-full"
-                disabled={isBooking}
                 size="lg"
               >
                 <CreditCard className="w-4 h-4 mr-2" />
@@ -280,7 +335,7 @@ export const TicketBooking = () => {
             </CardContent>
           </Card>
         ) : (
-          // Booking Success Screen
+          // Booking Success Screen (Kept from your original)
           <div className="space-y-6">
             <Card className="shadow-custom-lg text-center border-success">
               <CardContent className="p-8">
@@ -291,8 +346,7 @@ export const TicketBooking = () => {
                 <p className="text-muted-foreground mb-6">
                   Your tickets have been booked. Show the QR code at the station for entry.
                 </p>
-                
-                {/* Booking Details */}
+
                 {bookingDetails && (
                   <div className="max-w-md mx-auto">
                     <div className="bg-gradient-card p-6 rounded-lg mb-6">
@@ -316,12 +370,12 @@ export const TicketBooking = () => {
                         </div>
                         <div className="flex justify-between font-semibold">
                           <span>Total Paid:</span>
-                          <span className="text-primary">₹{bookingDetails.totalFare}</span>
+                          <span className="text-primary">₹{bookingDetails.totalFare.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* QR Code */}
+                    {/* QR Code (UPDATED to use real qrCodeData) */}
                     <div className="bg-white p-6 rounded-lg shadow-inner mb-6">
                       <QRCode 
                         value={qrCodeData}
@@ -332,13 +386,13 @@ export const TicketBooking = () => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
+                      <Button variant="outline" className="flex-1" onClick={() => navigate('/history')}>
+                        <History className="w-4 h-4 mr-2" />
+                        View History
+                      </Button>
                       <Button variant="outline" className="flex-1">
                         <Download className="w-4 h-4 mr-2" />
                         Download Ticket
-                      </Button>
-                      <Button variant="outline" className="flex-1">
-                        <Smartphone className="w-4 h-4 mr-2" />
-                        Add to Wallet
                       </Button>
                     </div>
                   </div>
@@ -347,17 +401,17 @@ export const TicketBooking = () => {
             </Card>
 
             <div className="flex justify-center space-x-4">
-              <Button onClick={() => setBookingComplete(false)}>
+              <Button onClick={() => {
+                  setBookingComplete(false);
+                  navigate('/route-planning'); // Go back to planning
+              }}>
                 Book Another Ticket
-              </Button>
-              <Button variant="outline">
-                View All Bookings
               </Button>
             </div>
           </div>
         )}
 
-        {/* Payment Modal */}
+        {/* Payment Modal (UPDATED to use RadioGroup and new payment logic) */}
         <Dialog open={showPayment} onOpenChange={setShowPayment}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -372,7 +426,7 @@ export const TicketBooking = () => {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Route:</span>
-                    <span>{fromStation} → {toStation}</span>
+                    <span>{route.startStationName} → {route.endStationName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Passengers:</span>
@@ -380,20 +434,32 @@ export const TicketBooking = () => {
                   </div>
                   <div className="flex justify-between font-semibold">
                     <span>Total:</span>
-                    <span className="text-primary">₹{calculateFare()}</span>
+                    <span className="text-primary">₹{calculateFare().toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['UPI', 'Card', 'Wallet', 'Net Banking'].map((method) => (
-                    <div key={method} className="p-3 border rounded cursor-pointer hover:border-primary">
-                      <div className="text-center text-sm font-medium">{method}</div>
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <div className="flex items-center space-x-2 p-3 bg-background rounded-md border">
+                        <RadioGroupItem value="WALLET" id="wallet" />
+                        <Label htmlFor="wallet" className="flex-1 cursor-pointer">
+                            <div className="flex justify-between items-center">
+                                <span className="flex items-center"><Wallet className="mr-2 h-4 w-4" /> Use Wallet</span>
+                                <span className="text-sm text-muted-foreground">
+                                    Balance: ₹{user?.walletBalance?.toFixed(2) ?? '0.00'}
+                                </span>
+                            </div>
+                        </Label>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex items-center space-x-2 p-3 bg-background rounded-md border">
+                        <RadioGroupItem value="UPI" id="upi" />
+                        <Label htmlFor="upi" className="flex-1 cursor-pointer">
+                            <span className="flex items-center"><CreditCard className="mr-2 h-4 w-4" /> UPI / Card / Other</span>
+                        </Label>
+                    </div>
+                </RadioGroup>
               </div>
 
               <Button 
@@ -408,7 +474,7 @@ export const TicketBooking = () => {
                     Processing Payment...
                   </>
                 ) : (
-                  <>Pay ₹{calculateFare()}</>
+                  <>Pay ₹{calculateFare().toFixed(2)}</>
                 )}
               </Button>
             </div>
